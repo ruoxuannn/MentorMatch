@@ -1,0 +1,113 @@
+# mentor_match_project.py
+
+# Required packages
+# pip install django djangorestframework flask-socketio eventlet
+
+import os
+from flask import Flask, render_template, request, jsonify
+from flask_socketio import SocketIO, emit
+from django.core.management import execute_from_command_line
+from django.conf import settings
+from django.db import models
+from django.contrib.auth.models import User
+from django.urls import path
+from django.http import HttpResponse
+from django.shortcuts import render
+
+# Django settings
+settings.configure(
+    INSTALLED_APPS=[
+        'django.contrib.contenttypes',
+        'django.contrib.auth',
+        'django.contrib.sessions',
+        'django.contrib.messages',
+        'django.contrib.staticfiles',
+        'rest_framework',
+        'django.contrib.sites',
+        'mentor_match_project',
+    ],
+    MIDDLEWARE=[
+        'django.middleware.security.SecurityMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        'django.middleware.common.CommonMiddleware',
+        'django.middleware.csrf.CsrfViewMiddleware',
+        'django.contrib.auth.middleware.AuthenticationMiddleware',
+        'django.contrib.messages.middleware.MessageMiddleware',
+        'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    ],
+    ROOT_URLCONF='mentor_match_project',
+    TEMPLATES=[
+        {
+            'BACKEND': 'django.template.backends.django.DjangoTemplates',
+            'DIRS': [os.path.join(os.path.dirname(__file__), 'templates')],
+            'APP_DIRS': True,
+            'OPTIONS': {
+                'context_processors': [
+                    'django.template.context_processors.debug',
+                    'django.template.context_processors.request',
+                    'django.contrib.auth.context_processors.auth',
+                    'django.contrib.messages.context_processors.messages',
+                ],
+            },
+        },
+    ],
+    WSGI_APPLICATION='mentor_match_project.wsgi.application',
+    STATIC_URL='/static/',
+    DATABASES={
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(os.path.dirname(__file__), 'db.sqlite3'),
+        }
+    },
+)
+
+# Django models
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    bio = models.TextField()
+    role = models.CharField(max_length=10)  # 'mentor' or 'student'
+
+class Appointment(models.Model):
+    mentor = models.ForeignKey(User, related_name='mentor', on_delete=models.CASCADE)
+    student = models.ForeignKey(User, related_name='student', on_delete=models.CASCADE)
+    date = models.DateTimeField()
+    topic = models.CharField(max_length=100)
+
+class Message(models.Model):
+    sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
+    recipient = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+# Django views
+def home(request):
+    return HttpResponse("Welcome to MentorMatch!")
+
+# Flask app
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app, async_mode='eventlet')
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@socketio.on('message')
+def handle_message(message):
+    emit('response', {'data': message['data']}, broadcast=True)
+
+# Django URL patterns
+urlpatterns = [
+    path('', home),
+]
+
+# Django WSGI application
+def application(environ, start_response):
+    from django.core.wsgi import get_wsgi_application
+    return get_wsgi_application()(environ, start_response)
+
+# Run Django commands
+if __name__ == "__main__":
+    execute_from_command_line(['manage.py', 'migrate'])
+    execute_from_command_line(['manage.py', 'runserver'])
+    socketio.run(app, port=5000)
