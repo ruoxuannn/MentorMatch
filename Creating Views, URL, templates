@@ -1,0 +1,44 @@
+# mentorship/views.py
+
+from django.shortcuts import render
+from django.http import HttpResponse
+
+def home(request):
+    return HttpResponse("Welcome to MentorMatch!") 
+
+# mentor_match_project/urls.py
+
+from django.contrib import admin
+from django.urls import path
+from mentorship import views
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('', views.home),
+]
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MentorMatch</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.0/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Welcome to MentorMatch</h1>
+    <textarea id="message" placeholder="Type your message"></textarea>
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+        var socket = io('http://localhost:5000');
+
+        function sendMessage() {
+            var message = document.getElementById('message').value;
+            socket.send({data: message});
+        }
+
+        socket.on('response', function(msg) {
+            console.log('Received message:', msg.data);
+        });
+    </script>
+</body>
+</html>
